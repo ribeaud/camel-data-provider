@@ -6,6 +6,8 @@ import org.apache.camel.NoSuchBeanException;
 import org.apache.camel.impl.UriEndpointComponent;
 import org.apache.camel.spi.Registry;
 import org.apache.camel.util.CamelContextHelper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.Set;
@@ -24,6 +26,8 @@ import java.util.Set;
 // Camel components.
 public class DataProviderComponent extends UriEndpointComponent {
 
+    private static final Logger LOG = LoggerFactory.getLogger(DataProviderComponent.class);
+
     public DataProviderComponent(CamelContext camelContext) {
         super(camelContext, DataProviderEndpoint.class);
     }
@@ -36,14 +40,16 @@ public class DataProviderComponent extends UriEndpointComponent {
         IDataProvider<?> dataProvider;
         switch (found.size()) {
             case 0:
-                throw new NoSuchBeanException((String) null, type.getSimpleName());
+                throw new NoSuchBeanException(null, type.getSimpleName());
             case 1:
                 // If we only have one, we do NOT need 'remaining'
                 dataProvider = (IDataProvider<?>) found.stream().findFirst().get();
+                LOG.info("One (AND ONLY one) data provider '{}' found.", dataProvider);
                 break;
             default:
                 dataProvider = (IDataProvider<?>) CamelContextHelper.mandatoryLookup(getCamelContext(), remaining,
                         type);
+                LOG.info("Data provider '{}' named '{}' found.", dataProvider, remaining);
         }
         return new DataProviderEndpoint(uri, this, dataProvider);
     }

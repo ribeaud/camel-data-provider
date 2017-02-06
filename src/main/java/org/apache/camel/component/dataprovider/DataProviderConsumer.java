@@ -1,5 +1,6 @@
 package org.apache.camel.component.dataprovider;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.Range;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
@@ -10,6 +11,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -22,6 +24,7 @@ public class DataProviderConsumer extends ScheduledBatchPollingConsumer {
     private static final Logger LOG = LoggerFactory.getLogger(DataProviderConsumer.class);
 
     private final AtomicReference<Range<Integer>> rangeReference = new AtomicReference<>();
+    private final AtomicBoolean finished = new AtomicBoolean(false);
 
     public DataProviderConsumer(DataProviderEndpoint dataProviderEndpoint, Processor processor) {
         super(dataProviderEndpoint, processor);
@@ -51,8 +54,12 @@ public class DataProviderConsumer extends ScheduledBatchPollingConsumer {
             pendingExchanges = total - index - 1;
             // Process the current exchange
             getProcessor().process(exchange);
-            if (exchange.getException() != null) {
-                getExceptionHandler().handleException("Error processing exchange", exchange, exchange.getException());
+            Exception exception = exchange.getException();
+            if (exception != null) {
+                // We expect the exception handler to log the exception. No need to do it again here.
+                getExceptionHandler().handleException(
+                        String.format("Error while processing exchange located at index %d.", index), exchange,
+                        exception);
             }
         }
         return total;
@@ -64,19 +71,27 @@ public class DataProviderConsumer extends ScheduledBatchPollingConsumer {
         IDataProvider<?> dataProvider = endpoint.getDataProvider();
         final Range<Integer> range = this.rangeReference.get();
         if (range.isEmpty()) {
+            if (!finished.getAndSet(true)) {
+                LogUtils.info(LOG, () -> "Nothing to poll. Last range handled.");
+            }
             return 0;
         }
         LogUtils.info(LOG, () -> String.format("Handling range '%s'.", range));
         int size = dataProvider.getSize();
-        Queue<Exchange> exchanges = new LinkedList<Exchange>();
+        Queue<Exchange> exchanges = new LinkedList<>();
         for (Object item : dataProvider.partition(range)) {
             Exchange exchange = endpoint.createExchange();
             exchange.getIn().setBody(item);
             exchanges.add(exchange);
         }
-        this.rangeReference.set(createNextRange(range.upperEndpoint(), size));
-        // 'processBatch' has to be invoked. It will NOT be invoked somewhere else. Bad interface design actually... :(
-        return processBatch(CastUtils.cast(exchanges));
+        Range<Integer> nextRange = createNextRange(range.upperEndpoint(), size);
+        LogUtils.debug(LOG, () -> String.format("Next range will be '%s'.", nextRange));
+        this.rangeReference.set(nextRange);
+        Stopwatch stopwatch = Stopwatch.createStarted();
+        int processBatch = processBatch(CastUtils.cast(exchanges));
+        stopwatch.stop();
+        LogUtils.debug(LOG, () -> String.format("Processing of %d exchanges took '%s'.", processBatch, stopwatch));
+        return processBatch;
     }
 
     Range<Integer> createNextRange(int upper, int size) {
