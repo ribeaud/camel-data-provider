@@ -1,3 +1,3 @@
 language: java
-script: mvn clean build
+script: mvn test
 jdk: oraclejdk8
