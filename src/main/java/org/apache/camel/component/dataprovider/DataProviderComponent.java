@@ -28,6 +28,10 @@ public class DataProviderComponent extends UriEndpointComponent {
 
     private static final Logger LOG = LoggerFactory.getLogger(DataProviderComponent.class);
 
+    public DataProviderComponent() {
+        super(DataProviderEndpoint.class);
+    }
+
     public DataProviderComponent(CamelContext camelContext) {
         super(camelContext, DataProviderEndpoint.class);
     }
