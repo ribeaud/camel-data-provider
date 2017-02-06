@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/ribeaud/camel-data-provider.svg?branch=master)](https://travis-ci.org/ribeaud/camel-data-provider)
+[![Releases](https://jitpack.io/v/ribeaud/camel-data-provider.svg)](https://jitpack.io/#ribeaud/camel-data-provider)
+
 ## Camel Data Provider
 
 [Camel](http://camel.apache.org/) component to plug in any data provider as *consumer* (specified with
