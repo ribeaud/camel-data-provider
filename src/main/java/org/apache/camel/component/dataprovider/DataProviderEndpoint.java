@@ -14,7 +14,7 @@ import org.apache.camel.spi.UriPath;
  *
  * @author <a href="mailto:christian.ribeaud@novartis.com">Christian Ribeaud</a>
  */
-@UriEndpoint(scheme = "dataprovider", title = "Data Provider", syntax = "dataprovider:name")
+@UriEndpoint(scheme = "dataprovider", title = "Data Provider", syntax = "dataprovider:beanName", label = "data", consumerOnly = true)
 public class DataProviderEndpoint extends ScheduledPollEndpoint {
 
     @UriPath(name = "name", description = "Name of IDataProvider to lookup in the registry")
@@ -22,7 +22,7 @@ public class DataProviderEndpoint extends ScheduledPollEndpoint {
     private final IDataProvider<?> dataProvider;
 
     public DataProviderEndpoint(String uri, DataProviderComponent dataProviderComponent,
-            IDataProvider<?> dataProvider) {
+                                IDataProvider<?> dataProvider) {
         super(uri, dataProviderComponent);
         assert dataProvider != null : "Unspecified data provider";
         this.dataProvider = dataProvider;
