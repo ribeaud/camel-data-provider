@@ -43,15 +43,18 @@ public class DataProviderConsumer extends ScheduledBatchPollingConsumer {
     @Override
     public int processBatch(Queue<Object> exchanges) throws Exception {
         assert exchanges != null : "Unspecified exchanges";
-        final int total = exchanges.size();
-        for (int index = 0; index < total && isBatchAllowed(); index++) {
+        final int batchSize = exchanges.size();
+        for (int index = 0; index < batchSize && isBatchAllowed(); index++) {
             Exchange exchange = (Exchange) exchanges.poll();
             // Add current index and total as properties
             exchange.setProperty(Exchange.BATCH_INDEX, index);
-            exchange.setProperty(Exchange.BATCH_SIZE, total);
-            exchange.setProperty(Exchange.BATCH_COMPLETE, index == total - 1);
+            exchange.setProperty(Exchange.BATCH_SIZE, batchSize);
+            exchange.setProperty(Exchange.BATCH_COMPLETE, index == batchSize - 1);
+            // We are handling the last exchange if the last batch is complete
+            exchange.setProperty(DataProviderConstants.LAST_EXCHANGE, exchange.getProperty(Exchange.BATCH_COMPLETE, Boolean.class)
+                    && exchange.getProperty(DataProviderConstants.LAST_BATCH, Boolean.class));
             // Update pending number of exchanges
-            pendingExchanges = total - index - 1;
+            pendingExchanges = batchSize - index - 1;
             // Process the current exchange
             getProcessor().process(exchange);
             Exception exception = exchange.getException();
@@ -62,11 +65,12 @@ public class DataProviderConsumer extends ScheduledBatchPollingConsumer {
                         exception);
             }
         }
-        return total;
+        return batchSize;
     }
 
     @Override
     protected int poll() throws Exception {
+        // Process current range
         DataProviderEndpoint endpoint = getDataProviderEndoint();
         IDataProvider<?> dataProvider = endpoint.getDataProvider();
         final Range<Integer> range = this.rangeReference.get();
@@ -81,9 +85,11 @@ public class DataProviderConsumer extends ScheduledBatchPollingConsumer {
         Queue<Exchange> exchanges = new LinkedList<>();
         for (Object item : dataProvider.partition(range)) {
             Exchange exchange = endpoint.createExchange();
+            exchange.setProperty(DataProviderConstants.LAST_BATCH, range.upperEndpoint() == size);
             exchange.getIn().setBody(item);
             exchanges.add(exchange);
         }
+        // Prepare next range
         Range<Integer> nextRange = createNextRange(range.upperEndpoint(), size);
         LogUtils.debug(LOG, () -> String.format("Next range will be '%s'.", nextRange));
         this.rangeReference.set(nextRange);
