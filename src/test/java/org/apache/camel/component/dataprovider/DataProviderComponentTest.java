@@ -37,6 +37,8 @@ public class DataProviderComponentTest extends CamelTestSupport {
         assertEquals(lastExchange.getProperty(Exchange.BATCH_COMPLETE), true);
         assertEquals(lastExchange.getProperty(Exchange.BATCH_SIZE), 20);
         assertEquals(lastExchange.getProperty(Exchange.BATCH_INDEX), 19);
+        assertEquals(lastExchange.getProperty(DataProviderConstants.SIZE), 100);
+        assertEquals(lastExchange.getProperty(DataProviderConstants.INDEX), 99);
         // First
         Exchange firstExchange = exchanges.get(0);
         assertNotNull(firstExchange);
@@ -45,6 +47,8 @@ public class DataProviderComponentTest extends CamelTestSupport {
         assertEquals(firstExchange.getProperty(Exchange.BATCH_COMPLETE), false);
         assertEquals(firstExchange.getProperty(Exchange.BATCH_SIZE), 20);
         assertEquals(firstExchange.getProperty(Exchange.BATCH_INDEX), 0);
+        assertEquals(firstExchange.getProperty(DataProviderConstants.INDEX), 0);
+        assertEquals(firstExchange.getProperty(DataProviderConstants.SIZE), 100);
     }
 
     @Test

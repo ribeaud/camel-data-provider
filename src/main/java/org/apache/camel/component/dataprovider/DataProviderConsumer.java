@@ -74,6 +74,7 @@ public class DataProviderConsumer extends ScheduledBatchPollingConsumer {
         DataProviderEndpoint endpoint = getDataProviderEndoint();
         IDataProvider<?> dataProvider = endpoint.getDataProvider();
         final Range<Integer> range = this.rangeReference.get();
+        int index = range.lowerEndpoint();
         if (range.isEmpty()) {
             if (!finished.getAndSet(true)) {
                 LogUtils.info(LOG, () -> "Nothing to poll. Last range handled.");
@@ -85,6 +86,8 @@ public class DataProviderConsumer extends ScheduledBatchPollingConsumer {
         Queue<Exchange> exchanges = new LinkedList<>();
         for (Object item : dataProvider.partition(range)) {
             Exchange exchange = endpoint.createExchange();
+            exchange.setProperty(DataProviderConstants.INDEX, index++);
+            exchange.setProperty(DataProviderConstants.SIZE, size);
             exchange.setProperty(DataProviderConstants.LAST_BATCH, range.upperEndpoint() == size);
             exchange.getIn().setBody(item);
             exchanges.add(exchange);
