@@ -44,7 +44,7 @@ public class DataProviderComponent extends UriEndpointComponent {
         IDataProvider<?> dataProvider;
         switch (found.size()) {
             case 0:
-                throw new NoSuchBeanException(null, type.getSimpleName());
+                throw new NoSuchBeanException(remaining, type.getSimpleName());
             case 1:
                 // If we only have one, we do NOT need 'remaining'
                 dataProvider = (IDataProvider<?>) found.stream().findFirst().get();

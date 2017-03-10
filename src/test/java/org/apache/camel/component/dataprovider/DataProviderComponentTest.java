@@ -1,6 +1,5 @@
 package org.apache.camel.component.dataprovider;
 
-import org.apache.camel.CamelContext;
 import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
@@ -62,20 +61,14 @@ public class DataProviderComponentTest extends CamelTestSupport {
     @Override
     protected JndiRegistry createRegistry() throws Exception {
         JndiRegistry registry = super.createRegistry();
-        List<String> strings = new ArrayList<>(100);
-        IntStream.range(0, 100).forEach(i -> strings.add(createRandomString()));
-        registry.bind("foo", new StaticDataProvider<>(strings));
+        registry.bind("foo", new StaticDataProvider<>(getRandomStrings(100)));
         return registry;
     }
 
-    @Override
-    protected void doPostSetup() throws Exception {
-        CamelContext context = context();
-        DataProviderComponent dataProviderComponent = new DataProviderComponent(context);
-        String componentName = "dataprovider";
-        if (context.hasComponent(componentName) == null) {
-            context.addComponent(componentName, dataProviderComponent);
-        }
+    static List<String> getRandomStrings(int length) {
+        List<String> strings = new ArrayList<>(length);
+        IntStream.range(0, length).forEach(i -> strings.add(createRandomString()));
+        return strings;
     }
 
     private static String createRandomString() {

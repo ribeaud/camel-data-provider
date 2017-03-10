@@ -7,6 +7,7 @@ import org.apache.camel.Producer;
 import org.apache.camel.impl.ScheduledPollEndpoint;
 import org.apache.camel.spi.Metadata;
 import org.apache.camel.spi.UriEndpoint;
+import org.apache.camel.spi.UriParam;
 import org.apache.camel.spi.UriPath;
 
 /**
@@ -20,6 +21,10 @@ public class DataProviderEndpoint extends ScheduledPollEndpoint {
     @UriPath(name = "name", description = "Name of IDataProvider to lookup in the registry")
     @Metadata(required = "true")
     private final IDataProvider<?> dataProvider;
+    @UriParam(defaultValue = "0", description = "Range starting index. Default is 0 and could NOT be negative.")
+    private int startingIndex = 0;
+    @UriParam(defaultValue = "-1", description = "Range size. -1 means everything.")
+    private int rangeSize = -1;
 
     public DataProviderEndpoint(String uri, DataProviderComponent dataProviderComponent,
                                 IDataProvider<?> dataProvider) {
@@ -35,7 +40,10 @@ public class DataProviderEndpoint extends ScheduledPollEndpoint {
 
     @Override
     public PollingConsumer createPollingConsumer() throws Exception {
-        throw new UnsupportedOperationException("No PollingConsumer has been implemented yet.");
+        DataProviderPollingConsumer pollingConsumer = new DataProviderPollingConsumer(this);
+        // Do NOT configure it using 'configurePollingConsumer' as we are NOT using the standard parameters
+        // configurePollingConsumer(pollingConsumer);
+        return pollingConsumer;
     }
 
     @Override
@@ -43,6 +51,30 @@ public class DataProviderEndpoint extends ScheduledPollEndpoint {
         DataProviderConsumer consumer = new DataProviderConsumer(this, processor);
         configureConsumer(consumer);
         return consumer;
+    }
+
+    public int getRangeSize() {
+        return rangeSize;
+    }
+
+    public void setRangeSize(int rangeSize) {
+        assertNonNegative(rangeSize, "Range size");
+        this.rangeSize = rangeSize;
+    }
+
+    public int getStartingIndex() {
+        return startingIndex;
+    }
+
+    public void setStartingIndex(int startingIndex) {
+        assertNonNegative(startingIndex, "Starting index");
+        this.startingIndex = startingIndex;
+    }
+
+    private static void assertNonNegative(int value, String object) {
+        if (value < 0) {
+            throw new IllegalArgumentException(String.format("%s could NOT be negative.", object));
+        }
     }
 
     @Override

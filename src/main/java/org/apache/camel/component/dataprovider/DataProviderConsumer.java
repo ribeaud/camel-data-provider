@@ -11,8 +11,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.LinkedList;
 import java.util.Queue;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * {@link ScheduledBatchPollingConsumer} extension for {@link IDataProvider}.
@@ -23,18 +23,23 @@ public class DataProviderConsumer extends ScheduledBatchPollingConsumer {
 
     private static final Logger LOG = LoggerFactory.getLogger(DataProviderConsumer.class);
 
-    private final AtomicReference<Range<Integer>> rangeReference = new AtomicReference<>();
-    private final AtomicBoolean finished = new AtomicBoolean(false);
+    private volatile Range<Integer> range;
+    private final Lock rangeLock = new ReentrantLock();
 
-    public DataProviderConsumer(DataProviderEndpoint dataProviderEndpoint, Processor processor) {
+    DataProviderConsumer(DataProviderEndpoint dataProviderEndpoint, Processor processor) {
         super(dataProviderEndpoint, processor);
     }
 
     @Override
     protected void doStart() throws Exception {
-        IDataProvider<?> dataProvider = getDataProviderEndoint().getDataProvider();
+        IDataProvider<?> dataProvider = getEndpoint().getDataProvider();
         int size = dataProvider.getSize();
-        rangeReference.set(Range.closedOpen(0, Math.min(size, maxMessagesPerPoll)));
+        rangeLock.lock();
+        try {
+            range = Range.closedOpen(0, Math.min(size, maxMessagesPerPoll));
+        } finally {
+            rangeLock.unlock();
+        }
         LogUtils.info(LOG, () -> String.format("Preparing to handle %d partition(s) (%d / %d)",
                 (int) Math.ceil((float) size / maxMessagesPerPoll), size, maxMessagesPerPoll));
         super.doStart();
@@ -70,32 +75,35 @@ public class DataProviderConsumer extends ScheduledBatchPollingConsumer {
 
     @Override
     protected int poll() throws Exception {
-        // Process current range
-        DataProviderEndpoint endpoint = getDataProviderEndoint();
+        DataProviderEndpoint endpoint = getEndpoint();
         IDataProvider<?> dataProvider = endpoint.getDataProvider();
-        final Range<Integer> range = this.rangeReference.get();
-        int index = range.lowerEndpoint();
-        if (range.isEmpty()) {
-            if (!finished.getAndSet(true)) {
+        final Queue<Exchange> exchanges = new LinkedList<>();
+        rangeLock.lock();
+        try {
+            Range<Integer> range = this.range;
+            if (range.isEmpty()) {
                 LogUtils.info(LOG, () -> "Nothing to poll. Last range handled.");
+                return 0;
             }
-            return 0;
+            // Process current range
+            LogUtils.info(LOG, () -> String.format("Handling range '%s'.", range));
+            int index = range.lowerEndpoint();
+            int size = dataProvider.getSize();
+            for (Object item : dataProvider.partition(range)) {
+                Exchange exchange = endpoint.createExchange();
+                exchange.setProperty(DataProviderConstants.INDEX, index++);
+                exchange.setProperty(DataProviderConstants.SIZE, size);
+                exchange.setProperty(DataProviderConstants.LAST_BATCH, range.upperEndpoint() == size);
+                exchange.getIn().setBody(item);
+                exchanges.add(exchange);
+            }
+            // Prepare next range
+            Range<Integer> nextRange = createNextRange(range.upperEndpoint(), size);
+            LogUtils.debug(LOG, () -> String.format("Next range will be '%s'.", nextRange));
+            this.range = nextRange;
+        } finally {
+            rangeLock.unlock();
         }
-        LogUtils.info(LOG, () -> String.format("Handling range '%s'.", range));
-        int size = dataProvider.getSize();
-        Queue<Exchange> exchanges = new LinkedList<>();
-        for (Object item : dataProvider.partition(range)) {
-            Exchange exchange = endpoint.createExchange();
-            exchange.setProperty(DataProviderConstants.INDEX, index++);
-            exchange.setProperty(DataProviderConstants.SIZE, size);
-            exchange.setProperty(DataProviderConstants.LAST_BATCH, range.upperEndpoint() == size);
-            exchange.getIn().setBody(item);
-            exchanges.add(exchange);
-        }
-        // Prepare next range
-        Range<Integer> nextRange = createNextRange(range.upperEndpoint(), size);
-        LogUtils.debug(LOG, () -> String.format("Next range will be '%s'.", nextRange));
-        this.rangeReference.set(nextRange);
         Stopwatch stopwatch = Stopwatch.createStarted();
         int processBatch = processBatch(CastUtils.cast(exchanges));
         stopwatch.stop();
@@ -111,7 +119,8 @@ public class DataProviderConsumer extends ScheduledBatchPollingConsumer {
         }
     }
 
-    private DataProviderEndpoint getDataProviderEndoint() {
-        return (DataProviderEndpoint) getEndpoint();
+    @Override
+    public DataProviderEndpoint getEndpoint() {
+        return (DataProviderEndpoint) super.getEndpoint();
     }
 }
