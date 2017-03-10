@@ -24,4 +24,16 @@ public interface IDataProvider<T> {
      * @return the partition associated to given <i>range</i>. Never <code>null</code>.
      */
     public Iterable<T> partition(Range<Integer> range);
+
+    /**
+     * Returns a name uniquely identifying this data provider.
+     * <p>
+     * Especially useful when dealing with several data providers.
+     * </p>
+     *
+     * @return {@code getClass().getSimpleName()} by default.
+     */
+    public default String getName() {
+        return getClass().getSimpleName();
+    }
 }
