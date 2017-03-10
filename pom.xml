@@ -18,6 +18,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <camel.version>2.18.1</camel.version>
         <slf4j.version>1.7.22</slf4j.version>
+        <logback.classic>1.2.1</logback.classic>
         <guava.version>21.0</guava.version>
         <mockito.version>1.10.19</mockito.version>
         <maven.compiler.source>1.8</maven.compiler.source>
@@ -49,6 +50,11 @@
         </dependency>
 
         <!-- testing -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>${logback.classic}</version>
+        </dependency>
         <dependency>
             <groupId>org.apache.camel</groupId>
             <artifactId>camel-testng</artifactId>
