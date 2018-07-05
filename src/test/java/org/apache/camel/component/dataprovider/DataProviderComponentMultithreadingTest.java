@@ -1,5 +1,7 @@
 package org.apache.camel.component.dataprovider;
 
+import org.apache.camel.Exchange;
+import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.impl.JndiRegistry;
@@ -29,11 +31,12 @@ public class DataProviderComponentMultithreadingTest extends CamelTestSupport {
     }
 
     @Override
-    protected RouteBuilder createRouteBuilder() throws Exception {
+    protected RouteBuilder createRouteBuilder() {
         return new RouteBuilder() {
             public void configure() {
-                from("dataprovider://foo?consumer.useFixedDelay=true&consumer.delay=20&consumer.maxMessagesPerPoll=20&initialDelay=20").
-                       to("mock:result");
+                from("dataprovider://foo?consumer.maxMessagesPerPoll=20&initialDelay=20&greedy=true")
+                        .to("seda:input");
+                from("seda:input").threads(20).process(exchange -> Thread.sleep(100L)).to("mock:result");
             }
         };
     }

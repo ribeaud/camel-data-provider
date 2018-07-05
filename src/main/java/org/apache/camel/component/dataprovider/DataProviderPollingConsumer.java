@@ -10,7 +10,12 @@ import org.apache.camel.util.ObjectHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * {@link PollingConsumerSupport} extension for {@link IDataProvider}.
@@ -30,8 +35,9 @@ public class DataProviderPollingConsumer extends PollingConsumerSupport {
     @Override
     public Exchange receive() {
         Range<Integer> range = createRange();
-        LogUtils.info(LOG, () -> String.format("Handling range '%s'.", range));
-        Iterable<?> partition = getEndpoint().getDataProvider().partition(range);
+        IDataProvider<?> dataProvider = getEndpoint().getDataProvider();
+        LogUtils.info(LOG, () -> String.format("[%s] Handling range '%s'.", dataProvider.getName(), range));
+        Iterable<?> partition = dataProvider.partition(range);
         Exchange exchange = getEndpoint().createExchange();
         int size = Iterables.size(partition);
         Message in = exchange.getIn();
@@ -65,12 +71,12 @@ public class DataProviderPollingConsumer extends PollingConsumerSupport {
     }
 
     @Override
-    protected void doStart() throws Exception {
+    protected void doStart() {
         executorService = getCamelContext().getExecutorServiceManager().newDefaultThreadPool(this, getClass().getSimpleName());
     }
 
     @Override
-    protected void doStop() throws Exception {
+    protected void doStop() {
         getCamelContext().getExecutorServiceManager().shutdown(executorService);
     }
 
