@@ -3,10 +3,6 @@ package org.apache.camel.component.dataprovider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-
 /**
  * {@link IDataProvider} implementation which already specifies all the data in the constructor.
  *
@@ -14,18 +10,27 @@ import java.util.List;
  */
 public class StaticDataProvider<T> implements IDataProvider<T> {
 
-    private final List<T> data;
+    // Immutable list is expected here
+    private final ImmutableList<T> data;
 
     public StaticDataProvider(T... data) {
-        this(Arrays.asList(data));
+        this(ImmutableList.copyOf(data));
     }
 
-    public StaticDataProvider(Collection<T> data) {
+    /**
+     * Constructor with provided {@link Iterable} <i>data</i>.
+     * <p>
+     * Internally will be converted into a {@link ImmutableList}.
+     * </p>
+     *
+     * @param data the {@link Iterable} data. Can NOT be <code>null</code>.
+     */
+    public StaticDataProvider(Iterable<T> data) {
         assert data != null : "Unspecified data";
-        if (data instanceof List == false) {
+        if (data instanceof ImmutableList == false) {
             this.data = ImmutableList.copyOf(data);
         } else {
-            this.data = ((List<T>) data);
+            this.data = (ImmutableList<T>) data;
         }
     }
 
