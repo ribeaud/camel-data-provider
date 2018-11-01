@@ -20,6 +20,7 @@ public abstract class LazyDataProvider<T> implements IDataProvider<T> {
     private final ReentrantReadWriteLock dataLock = new ReentrantReadWriteLock();
     private final Lock readDataLock = dataLock.readLock();
     private final Lock writeDataLock = dataLock.writeLock();
+    private volatile boolean dataLoaded;
 
     private ImmutableList<T> data;
 
@@ -34,16 +35,24 @@ public abstract class LazyDataProvider<T> implements IDataProvider<T> {
     public abstract Iterable<T> loadData();
 
     private void ensureDataLoaded() {
-        LockUtils.runWithLock(writeDataLock, () -> {
-            if (data == null) {
-                Iterable<T> data = loadData();
-                if (data instanceof ImmutableList) {
-                    this.data = (ImmutableList<T>) data;
-                } else {
-                    this.data = ImmutableList.copyOf(data);
-                }
+        readDataLock.lock();
+        try {
+            if (dataLoaded == false) {
+                readDataLock.unlock();
+                LockUtils.runWithLock(this.writeDataLock, () -> {
+                    Iterable<T> data = this.loadData();
+                    if (data instanceof ImmutableList) {
+                        this.data = (ImmutableList) data;
+                    } else {
+                        this.data = ImmutableList.copyOf(data);
+                    }
+                    dataLoaded = true;
+                    readDataLock.lock();
+                });
             }
-        });
+        } finally {
+            readDataLock.unlock();
+        }
     }
 
     @Override
